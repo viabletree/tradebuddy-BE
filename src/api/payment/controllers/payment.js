@@ -135,6 +135,108 @@ module.exports = {
     }
   },
 
+  purchasePlan: async () => {
+    const ctx = strapi.requestContext.get();
+    const loggedInUser = ctx?.state?.user ?? {};
+    const body = ctx?.request?.body ?? {};
+    try {
+      const userData = await strapi.entityService.findOne(
+        "plugin::users-permissions.user",
+        loggedInUser?.id,
+        {
+          populate: ["payment_methods", "kyc", "image"],
+        }
+      );
+
+      if (!userData?.payment_methods) {
+        return ctx.badRequest("Payment method is required.");
+      }
+
+      let customerId = loggedInUser?.customer_id ?? "";
+      console.log({ customerId });
+      // if Customer does not attached on user, then create new user
+      if (!customerId) {
+        console.log("I am inside");
+        const isCustomerExist = await stripe.customers?.list({
+          email: loggedInUser?.email,
+        });
+        console.log("isCustomerExist", isCustomerExist?.data);
+
+        if (isCustomerExist?.data?.length > 0) {
+          const customer = isCustomerExist?.data?.[0];
+
+          customerId = customer?.id;
+
+          await strapi.entityService.update(
+            "plugin::users-permissions.user",
+            loggedInUser?.id,
+            {
+              data: {
+                customer_id: customerId,
+              },
+            }
+          );
+        } else {
+          const customer = await stripe.customers?.create({
+            email: loggedInUser?.email,
+          });
+          console.log({ customer });
+          customerId = customer?.id;
+
+          await strapi.entityService.update(
+            "plugin::users-permissions.user",
+            loggedInUser?.id,
+            {
+              data: {
+                customer_id: customerId,
+              },
+            }
+          );
+        }
+      }
+
+      console.log({ customerId });
+
+      const plans = await stripe.products.list({
+        active: true,
+      });
+
+      const plan = plans?.data?.[0];
+
+      // const paymentMethod = userData?.payment_methods?.[0];
+
+      const isExistPlan = await stripe.subscriptions.search({
+        query: `status:\'active\' AND metadata[\'email\']:\'${userData.email}\'`,
+      });
+
+      if (isExistPlan?.data?.length > 0) {
+        return ctx.badRequest("You already have a plan.");
+      }
+      if (!userData?.is_subscribed) {
+        // const currentTime = new Date().getTime();
+        // const expiryDate = new Date(userData?.plan_expiry).getTime();
+        // if (currentTime >= expiryDate) {
+        const subscription = await stripe.subscriptions.create({
+          customer: customerId,
+          items: [{ price: plan?.default_price }],
+          metadata: {
+            email: userData.email,
+          },
+          default_payment_method: body?.paymentMethodId,
+        });
+        // } else {
+        //   const find = await stripe.subscriptions.search({
+        //     query: `status:\'active\' AND metadata[\'email\']:\'${userData.email}\'`,
+        //   });
+        //   const findId = find.data[0].id
+        // }
+      }
+    } catch (error) {
+      console.log("getPlans error ==>>>", error);
+      return ctx.badRequest(error);
+    }
+  },
+
   // purchaseChallenge: async () => {
   //   const ctx = strapi.requestContext.get();
   //   const loggedInUser = ctx?.state?.user ?? {};

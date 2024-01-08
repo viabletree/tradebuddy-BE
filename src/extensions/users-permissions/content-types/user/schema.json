@@ -100,6 +100,14 @@
       "relation": "oneToMany",
       "target": "api::payment-method.payment-method",
       "mappedBy": "user"
+    },
+    "is_subscribed": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "plan_expiry": {
+      "type": "datetime"
     }
   }
 }

@@ -719,6 +719,10 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
       'oneToMany',
       'api::payment-method.payment-method'
     >;
+    is_subscribed: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
+    plan_expiry: Attribute.DateTime;
     createdAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     createdBy: Attribute.Relation<

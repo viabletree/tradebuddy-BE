@@ -10,6 +10,11 @@ module.exports = {
       path: "/payment/detach-payment-method",
       handler: "payment.detachPaymentMethod",
     },
+    {
+      method: "POST",
+      path: "/purchase-plan",
+      handler: "payment.purchasePlan",
+    },
     // {
     //   method: "POST",
     //   path: "/payment/purchase",
