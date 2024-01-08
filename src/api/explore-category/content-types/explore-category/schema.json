@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "explore_categories",
+  "info": {
+    "singularName": "explore-category",
+    "pluralName": "explore-categories",
+    "displayName": "Explore Category"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "required": true
+    },
+    "explores": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::explore.explore",
+      "mappedBy": "explore_category"
+    }
+  }
+}

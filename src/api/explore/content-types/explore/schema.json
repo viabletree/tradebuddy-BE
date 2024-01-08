@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "explores",
+  "info": {
+    "singularName": "explore",
+    "pluralName": "explores",
+    "displayName": "Explore"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "required": true
+    },
+    "explore_category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::explore-category.explore-category",
+      "inversedBy": "explores"
+    }
+  }
+}

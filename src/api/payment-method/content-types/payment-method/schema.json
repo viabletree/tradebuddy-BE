@@ -1,0 +1,41 @@
+{
+  "kind": "collectionType",
+  "collectionName": "payment_methods",
+  "info": {
+    "singularName": "payment-method",
+    "pluralName": "payment-methods",
+    "displayName": "Payment Methods"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "last_digit": {
+      "type": "string",
+      "required": true
+    },
+    "method_id": {
+      "type": "string",
+      "required": true
+    },
+    "brand": {
+      "type": "string",
+      "required": true
+    },
+    "expiry_month": {
+      "type": "string",
+      "required": true
+    },
+    "expiry_year": {
+      "type": "string",
+      "required": true
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "payment_methods"
+    }
+  }
+}
