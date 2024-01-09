@@ -1,4 +1,6 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const unparsed = require("koa-body/unparsed.js");
 
 module.exports = {
   attachPaymentMethod: async () => {
@@ -203,6 +205,11 @@ module.exports = {
 
       const plan = plans?.data?.[0];
 
+      console.log("::::Plan:::::", { plan });
+
+      const price = await stripe.prices.retrieve(plan?.default_price);
+
+      console.log("::::Price:::::", { price });
       // const paymentMethod = userData?.payment_methods?.[0];
 
       const isExistPlan = await stripe.subscriptions.search({
@@ -220,19 +227,175 @@ module.exports = {
           customer: customerId,
           items: [{ price: plan?.default_price }],
           metadata: {
+            user: userData.id,
             email: userData.email,
           },
-          default_payment_method: body?.paymentMethodId,
+          // default_payment_method: body?.paymentMethodId,
         });
+
+        console.log("::::Subscription:::::", { subscription });
+
+        const updateUserData = await strapi.entityService.update(
+          "plugin::users-permissions.user",
+          loggedInUser?.id,
+          {
+            data: {
+              is_subscribed: true,
+              plan_expiry: subscription?.current_period_end,
+            },
+          }
+        );
+
+        console.log("::::Updated User Data:::::", { updateUserData });
+
+        const amount = +price?.unit_amount_decimal / 100;
+        const createTransactions = await strapi.entityService.create(
+          "api::transaction.transaction",
+          {
+            data: {
+              amount: `${amount}`,
+              subscription_id: subscription?.id,
+              package_name: plan?.name,
+              user: loggedInUser?.id,
+            },
+          }
+        );
+
+        console.log("::::Create Transaction:::::", { createTransactions });
+
+        return ctx.send({
+          status: true,
+          message: "Plan purchased successfully.",
+          data: updateUserData,
+        });
+
         // } else {
         //   const find = await stripe.subscriptions.search({
         //     query: `status:\'active\' AND metadata[\'email\']:\'${userData.email}\'`,
         //   });
         //   const findId = find.data[0].id
         // }
+      } else {
+        return ctx.badRequest("You already have a plan.");
       }
     } catch (error) {
       console.log("getPlans error ==>>>", error);
+      return ctx.badRequest(error);
+    }
+  },
+
+  handleWebhook: async (ctx) => {
+    try {
+      const header = ctx.request.headers;
+      const sig = header["stripe-signature"];
+      let event;
+      try {
+        event = stripe.webhooks.constructEvent(
+          ctx.request.body[unparsed],
+          sig,
+          endpointSecret
+        );
+      } catch (err) {
+        console.error(err);
+        ctx.badRequest(`Webhook Error: ${err.message}`);
+        return;
+      }
+      // Handle the event
+      switch (event.type) {
+        case "customer.subscription.deleted":
+          const subscriptionDeleted = event.data.object;
+          // Then define and call a function to handle the event subscription_schedule.aborted
+          console.log("subscriptionDeleted", subscriptionDeleted);
+
+          const updateUserData = await strapi.entityService.update(
+            "plugin::users-permissions.user",
+            subscriptionDeleted?.metadata?.user,
+            {
+              data: {
+                is_subscribed: false,
+              },
+            }
+          );
+          console.log("::::Updated User From Webhook:::::", { updateUserData });
+          break;
+        case "customer.subscription.updated":
+          const subscriptionUpdated = event.data.object;
+          // Then define and call a function to handle the event subscription_schedule.canceled
+          console.log("subscriptionUpdated", subscriptionUpdated);
+
+          if (!subscriptionUpdated?.metadata?.isCancel) {
+            const plans = await stripe.products.list({
+              active: true,
+            });
+
+            const plan = plans?.data?.[0];
+
+            const price = await stripe.prices.retrieve(plan?.default_price);
+
+            const amount = +price?.unit_amount_decimal / 100;
+
+            const createTransaction = await strapi.entityService.create(
+              "api::transaction.transaction",
+              {
+                data: {
+                  amount: `${amount}`,
+                  subscription_id: subscriptionUpdated?.id,
+                  package_name: plan?.name,
+                  user: subscriptionUpdated?.metadata?.user,
+                },
+              }
+            );
+            console.log("::::Create Transaction From Webhook:::::", {
+              createTransaction,
+            });
+          }
+          break;
+        // ... handle other event types
+        default:
+          console.log(`Unhandled event type ${event.type}`);
+      }
+      ctx.send({ received: true });
+    } catch (error) {
+      console.log("handleWebhook error ==>>>", error);
+    }
+  },
+
+  cancelPlan: async (ctx) => {
+    try {
+      const transactions = await strapi.entityService.findMany(
+        "api::transaction.transaction",
+        {
+          filters: {
+            subscription_id: {
+              $ne: null,
+            },
+          },
+          sort: "createdAt:desc",
+          limit: 1,
+        }
+      );
+      if (transactions?.length < 1) {
+        return ctx.badRequest("No subscription found.");
+      }
+
+      const subscriptionId = transactions?.[0]?.subscription_id;
+
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+      const data = await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true,
+        metadata: {
+          ...subscription?.metadata,
+          isCancel: true,
+        },
+      });
+
+      return ctx.send({
+        status: true,
+        message: "Plan canceled successfully.",
+        data: data?.status,
+      });
+    } catch (error) {
       return ctx.badRequest(error);
     }
   },
