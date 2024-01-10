@@ -114,6 +114,10 @@
       "relation": "oneToMany",
       "target": "api::transaction.transaction",
       "mappedBy": "user"
+    },
+    "country_code": {
+      "type": "string",
+      "required": true
     }
   }
 }
