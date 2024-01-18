@@ -108,6 +108,16 @@
     },
     "plan_expiry": {
       "type": "datetime"
+    },
+    "transactions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::transaction.transaction",
+      "mappedBy": "user"
+    },
+    "country_code": {
+      "type": "string",
+      "required": true
     }
   }
 }

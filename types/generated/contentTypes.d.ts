@@ -723,6 +723,12 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
       Attribute.Required &
       Attribute.DefaultTo<false>;
     plan_expiry: Attribute.DateTime;
+    transactions: Attribute.Relation<
+      'plugin::users-permissions.user',
+      'oneToMany',
+      'api::transaction.transaction'
+    >;
+    country_code: Attribute.String & Attribute.Required;
     createdAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     createdBy: Attribute.Relation<
@@ -943,6 +949,42 @@ export interface ApiPaymentMethodPaymentMethod extends Schema.CollectionType {
   };
 }
 
+export interface ApiTransactionTransaction extends Schema.CollectionType {
+  collectionName: 'transactions';
+  info: {
+    singularName: 'transaction';
+    pluralName: 'transactions';
+    displayName: 'Transactions';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    subscription_id: Attribute.String & Attribute.Required & Attribute.Unique;
+    amount: Attribute.String & Attribute.Required;
+    package_name: Attribute.String & Attribute.Required;
+    user: Attribute.Relation<
+      'api::transaction.transaction',
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    createdAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::transaction.transaction',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    updatedBy: Attribute.Relation<
+      'api::transaction.transaction',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 declare module '@strapi/types' {
   export module Shared {
     export interface ContentTypes {
@@ -966,6 +1008,7 @@ declare module '@strapi/types' {
       'api::new.new': ApiNewNew;
       'api::otp.otp': ApiOtpOtp;
       'api::payment-method.payment-method': ApiPaymentMethodPaymentMethod;
+      'api::transaction.transaction': ApiTransactionTransaction;
     }
   }
 }
